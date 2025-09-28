@@ -1,0 +1,7 @@
+
+> findmycat-backend@1.0.0 dev
+> tsx watch src/server.ts
+
+🐱 FindMyCat Backend running on port 3001
+📡 WebSocket server ready for real-time updates
+🗄️  Database: ./data/findmycat.db
