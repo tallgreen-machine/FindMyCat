@@ -85,6 +85,58 @@
   background: #2563eb;
 }
 
+/* Pairing UI */
+.pairing-box {
+  border: 1px dashed #d1d5db;
+  background: #f9fafb;
+  padding: 12px;
+  border-radius: 6px;
+  margin: 12px 0 18px;
+}
+
+.pairing-box h4 {
+  margin: 0 0 6px 0;
+}
+
+.pairing-help {
+  margin: 0 0 10px 0;
+  font-size: 12px;
+  color: #555;
+}
+
+.pairing-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pairing-result {
+  margin-top: 10px;
+}
+
+.pairing-code {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: white;
+  cursor: pointer;
+}
+
+.pairing-expiry {
+  font-size: 12px;
+  color: #666;
+  margin-top: 6px;
+}
+
+.pairing-instructions {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #444;
+}
+
 .device-list h3 {
   margin: 0 0 15px 0;
   color: #333;

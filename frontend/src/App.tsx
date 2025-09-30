@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CatMap } from './components/CatMap';
 import { ControlPanel } from './components/ControlPanel';
+import { AuthWrapper } from './components/AuthWrapper';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { websocketService } from './services/websocket';
 import { apiService } from './services/api';
 import { Location, DeviceStatus } from './types';
 import { HistoryBoard } from './components/HistoryBoard';
 import './App.css';
 
-function App() {
+function MainApp() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [deviceStatuses, setDeviceStatuses] = useState<DeviceStatus[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<string | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +22,12 @@ function App() {
   const [focusedLocations, setFocusedLocations] = useState<Location[] | null>(null);
   const historyAbortRef = useRef<AbortController | null>(null);
   const loadingHistoryRef = useRef(false);
+  const showHistoryRef = useRef(true);
+
+  // History is always on
+  useEffect(() => {
+    showHistoryRef.current = true;
+  }, []);
 
   const loadInitialData = useCallback(async () => {
     setError(null);
@@ -41,8 +48,26 @@ function App() {
 
   useEffect(() => {
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-    console.log('🔍 API URL from env:', apiUrl);
+    const debug = (() => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const byEnv = process.env.NODE_ENV !== 'production';
+        const byParam = params.has('debug');
+        const byGlobal = (window as any).__FMC_DEBUG__ === true;
+        return byEnv || byParam || byGlobal;
+      } catch {
+        return process.env.NODE_ENV !== 'production';
+      }
+    })();
+    if (debug) console.log('🔍 API URL from env:', apiUrl);
     const socket = websocketService.connect(apiUrl);
+
+    // Helper to normalize incoming location objects (WS payloads may have string decimals)
+    const normalizeLocation = (l: any): Location => ({
+      ...l,
+      latitude: typeof l.latitude === 'number' ? l.latitude : Number(l.latitude),
+      longitude: typeof l.longitude === 'number' ? l.longitude : Number(l.longitude),
+    });
 
     if (socket) {
       socket.on('connect', () => {
@@ -60,16 +85,18 @@ function App() {
         setError('Failed to connect to server');
       });
 
-      socket.on('initial_locations', (data: Location[]) => {
-        console.log('Received initial locations:', data);
-        setLocations(data);
+      socket.on('initial_locations', (data: any[]) => {
+        if (debug) console.log('Received initial locations:', data);
+        const normalized = Array.isArray(data) ? data.map(normalizeLocation) : [];
+        setLocations(normalized);
         setIsLoading(false);
       });
 
-      socket.on('location_update', (newLocation: Location) => {
+      socket.on('location_update', (newLocation: any) => {
+        const normalized = normalizeLocation(newLocation);
         setLocations(prevLocations => {
-          const updatedLocations = [...prevLocations, newLocation];
-          if (!showHistory) {
+          const updatedLocations = [...prevLocations, normalized];
+          if (!showHistoryRef.current) {
             const latestPerDevice = new Map<string, Location>();
             updatedLocations.forEach(loc => {
               const existing = latestPerDevice.get(loc.deviceId);
@@ -84,12 +111,12 @@ function App() {
 
         setDeviceStatuses(prevStatuses => {
           const updatedStatuses = [...prevStatuses];
-          const existingIndex = updatedStatuses.findIndex(s => s.deviceId === newLocation.deviceId);
+          const existingIndex = updatedStatuses.findIndex(s => s.deviceId === normalized.deviceId);
           const newStatus: DeviceStatus = {
-            deviceId: newLocation.deviceId,
-            lastSeen: newLocation.timestamp,
-            latitude: newLocation.latitude,
-            longitude: newLocation.longitude,
+            deviceId: normalized.deviceId,
+            lastSeen: normalized.timestamp,
+            latitude: normalized.latitude,
+            longitude: normalized.longitude,
             isOnline: true
           };
           if (existingIndex >= 0) {
@@ -116,22 +143,15 @@ function App() {
     loadInitialData();
   }, [loadInitialData]);
 
-  // When the history toggle changes, avoid overwriting history with latest-only.
-  // - If enabling history, trigger a history fetch and re-fit.
-  // - If disabling history, refresh latest-only data and re-fit.
+  // History is always on: fetch it at startup and on refresh
   useEffect(() => {
     if (isLoading) return;
-    if (showHistory) {
-      setHistoryReloadKey(k => k + 1);
-      setFitKey(k => k + 1);
-    } else {
-      loadInitialData();
-      setFitKey(k => k + 1);
-    }
-  }, [showHistory, isLoading, loadInitialData]);
+    setHistoryReloadKey(k => k + 1);
+    setFitKey(k => k + 1);
+  }, [isLoading]);
 
   useEffect(() => {
-    if (!showHistory) return;
+    // Always fetch history
     if (loadingHistoryRef.current) return;
     loadingHistoryRef.current = true;
 
@@ -141,7 +161,7 @@ function App() {
 
     const fetchHistory = async () => {
       try {
-        const history = await apiService.getAllLocationHistory(1000, 30000);
+        const history = await apiService.getAllLocationHistory(2000, 30000);
         if (!controller.signal.aborted) {
           setLocations(history);
           setError(null);
@@ -163,14 +183,10 @@ function App() {
       controller.abort();
       loadingHistoryRef.current = false;
     };
-  }, [showHistory, historyReloadKey]);
+  }, [historyReloadKey]);
 
   const handleRefresh = () => {
-    if (showHistory) {
-      setHistoryReloadKey(k => k + 1);
-    } else {
-      loadInitialData();
-    }
+    setHistoryReloadKey(k => k + 1);
     setFitKey(k => k + 1);
   };
 
@@ -191,16 +207,14 @@ function App() {
         <ControlPanel
           deviceStatuses={deviceStatuses}
           selectedDevice={selectedDevice}
-          showHistory={showHistory}
           isConnected={isConnected}
           onDeviceSelect={setSelectedDevice}
-          onHistoryToggle={setShowHistory}
           onRefresh={handleRefresh}
+          pointsCount={locations.length}
         />
         <HistoryBoard
           locations={locations}
           selectedDevice={selectedDevice}
-          showHistory={showHistory}
           selectedLocationKey={selectedLocationKey}
           onSelect={(loc) => {
             const key = `${loc.deviceId}|${loc.timestamp}`;
@@ -226,12 +240,46 @@ function App() {
           locations={locations}
           deviceStatuses={deviceStatuses}
           selectedDevice={selectedDevice}
-          showHistory={showHistory}
+          showHistory={true}
           fitKey={fitKey}
           fitTargets={focusedLocations ?? undefined}
         />
       </div>
     </div>
+  );
+}
+
+const AppContent: React.FC = () => {
+  const { state } = useAuth();
+  
+  console.log('🔵 AppContent render - Auth state:', {
+    isLoading: state.isLoading,
+    isAuthenticated: state.isAuthenticated,
+    user: state.user,
+    hasToken: !!state.token
+  });
+
+  if (state.isLoading) {
+    return (
+      <div className="auth-loading">
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!state.isAuthenticated) {
+    return <AuthWrapper />;
+  }
+
+  return <MainApp />;
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

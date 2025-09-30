@@ -34,12 +34,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class FindMyCatClient:
-    def __init__(self, server_url: str = DEFAULT_SERVER_URL):
+    def __init__(self, server_url: str = DEFAULT_SERVER_URL, token: Optional[str] = None):
         self.server_url = server_url.rstrip('/')
         self.last_mtime: Optional[float] = None
         self.last_seen: Dict[str, int] = {}
         self.session = requests.Session()
         self.session.timeout = 30
+        self.token = token
+        if self.token:
+            self.session.headers.update({"Authorization": f"Bearer {self.token}"})
+            logger.info("🔐 Auth token loaded; client will send authenticated updates")
         
     def test_connection(self) -> bool:
         """Test connection to the web server"""
@@ -274,6 +278,10 @@ def main():
         help=f"Web server URL (default: {DEFAULT_SERVER_URL})"
     )
     parser.add_argument(
+        "--pair-code",
+        help="Pair this Mac to your account using a pairing code generated from the web UI"
+    )
+    parser.add_argument(
         "--test", 
         action="store_true",
         help="Test connection and run once, then exit"
@@ -295,7 +303,56 @@ def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
-    client = FindMyCatClient(args.server)
+    # Config persistence for token
+    config_dir = os.path.expanduser("~/.findmycat")
+    config_path = os.path.join(config_dir, "config.json")
+    os.makedirs(config_dir, exist_ok=True)
+
+    saved_token: Optional[str] = None
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                saved = json.load(f)
+                if isinstance(saved, dict):
+                    saved_token = saved.get("token")
+                    saved_server = saved.get("server")
+                    # Respect previously saved server URL unless --server was provided explicitly
+                    if saved_server and not (args.server and args.server != DEFAULT_SERVER_URL):
+                        args.server = saved_server
+        except Exception as e:
+            logger.warning(f"Could not read config file: {e}")
+
+    client = FindMyCatClient(args.server, token=saved_token)
+
+    # Pairing flow
+    if args.pair_code:
+        try:
+            logger.info("🔗 Pairing with server using code...")
+            resp = client.session.post(
+                f"{client.server_url}/api/devices/pair",
+                json={"code": args.pair_code},
+                headers={"Content-Type": "application/json"},
+                timeout=30,
+            )
+            if resp.status_code != 200:
+                logger.error(f"❌ Pairing failed: {resp.status_code} {resp.text}")
+                return
+            data = resp.json()
+            token = data.get("token")
+            if not token:
+                logger.error("❌ Pairing response did not include a token")
+                return
+            # Save token & server to config
+            to_save = {"token": token, "server": client.server_url}
+            with open(config_path, "w") as f:
+                json.dump(to_save, f, indent=2)
+            logger.info("✅ Paired successfully. Token saved to ~/.findmycat/config.json")
+            # Update session headers immediately
+            client.token = token
+            client.session.headers.update({"Authorization": f"Bearer {token}"})
+        except Exception as e:
+            logger.error(f"❌ Pairing error: {e}")
+            return
     
     if args.test:
         logger.info("🧪 Running in test mode...")

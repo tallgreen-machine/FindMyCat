@@ -4,11 +4,34 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
-import { Database } from './database';
+import path from 'path';
+import fs from 'fs';
+import { PostgresDatabase, generateToken, verifyToken, JWTPayload } from './postgres';
 import { Location, LocationUpdate, DeviceStatus } from './types';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from multiple possible locations to be robust to CWD
+const envLoadedFrom: string[] = [];
+const tryLoadEnv = (envPath: string) => {
+  try {
+    if (fs.existsSync(envPath)) {
+      dotenv.config({ path: envPath });
+      envLoadedFrom.push(envPath);
+    }
+  } catch (_) { /* ignore */ }
+};
+
+// 1) Default: current working directory
+tryLoadEnv(path.resolve(process.cwd(), '.env'));
+// 2) Parent of compiled dist (e.g., /srv/findmycat/.env)
+tryLoadEnv(path.resolve(__dirname, '../.env'));
+// 3) As a fallback, also try project root two levels up if present
+tryLoadEnv(path.resolve(__dirname, '../../.env'));
+
+if (envLoadedFrom.length > 0) {
+  console.log('🔎 Loaded .env from:', envLoadedFrom.join(', '));
+} else {
+  console.log('ℹ️  No .env file found alongside CWD or dist; relying on process env');
+}
 
 const app = express();
 const server = createServer(app);
@@ -39,7 +62,15 @@ const isOriginAllowed = (origin?: string | undefined) => {
   return allowedRegexes.some(r => r.test(origin));
 };
 
+// Allow hosting under a prefixed base path (e.g., '/findmy')
+const rawPrefix = process.env.PATH_PREFIX || '';
+const PATH_PREFIX = rawPrefix
+  ? ('/' + rawPrefix.replace(/^\/+|\/+$|\s+/g, '').trim())
+  : '';
+const SOCKET_IO_PATH = `${PATH_PREFIX}/socket.io`;
+
 const io = new Server(server, {
+  path: SOCKET_IO_PATH,
   cors: {
     origin: (origin, callback) => {
       if (isOriginAllowed(origin || undefined)) return callback(null, true);
@@ -50,7 +81,12 @@ const io = new Server(server, {
 });
 
 const PORT = process.env.PORT || 3001;
-const db = new Database(process.env.DATABASE_URL);
+// Robust default DB path: resolve relative to compiled dist (../data/findmycat.db)
+const defaultDbPath = path.resolve(__dirname, '../data/findmycat.db');
+const rawDbEnv = (process.env.DATABASE_URL || '').trim();
+const configuredDbPath = rawDbEnv.length > 0 ? rawDbEnv : defaultDbPath;
+// Initialize PostgreSQL database
+const db = new PostgresDatabase();
 
 // Middleware
 app.use(helmet());
@@ -61,6 +97,40 @@ app.use(cors({
   },
 }));
 app.use(express.json());
+
+// Authentication middleware
+const authenticateToken = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  try {
+    const payload = verifyToken(token);
+    (req as any).user = payload;
+    next();
+  } catch (error) {
+    return res.status(403).json({ error: 'Invalid or expired token' });
+  }
+};
+
+// Optional auth middleware (allows both authenticated and anonymous access)
+const optionalAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (token) {
+    try {
+      const payload = verifyToken(token);
+      (req as any).user = payload;
+    } catch (error) {
+      // Invalid token, but continue as anonymous
+    }
+  }
+  next();
+};
 
 // Store connected clients
 const connectedClients = new Set();
@@ -88,6 +158,25 @@ io.on('connection', (socket) => {
 });
 
 // API Routes
+// Admin: Inspect database info (path, counts)
+app.get('/api/admin/db-info', async (req, res) => {
+  try {
+    const total = await db.getTotalCount();
+    const perDevice = await db.getDeviceCounts();
+    res.json({
+      path: db.getPath(),
+      exists: fs.existsSync(db.getPath()),
+      sizeBytes: fs.existsSync(db.getPath()) ? fs.statSync(db.getPath()).size : 0,
+      totalRows: total,
+      perDevice,
+      cwd: process.cwd(),
+      envDatabaseUrl: process.env.DATABASE_URL || null,
+    });
+  } catch (error) {
+    console.error('Error in /api/admin/db-info:', error);
+    res.status(500).json({ error: 'Failed to retrieve DB info' });
+  }
+});
 
 // Health check
 app.get('/health', (req, res) => {
@@ -270,7 +359,9 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 server.listen(PORT, () => {
   console.log(`🐱 FindMyCat Backend running on port ${PORT}`);
   console.log(`📡 WebSocket server ready for real-time updates`);
-  console.log(`🗄️  Database: ${process.env.DATABASE_URL || './data/findmycat.db'}`);
+  console.log(`🗄️  Database: ${finalDbPath}`);
+  console.log(`🛣️  PATH_PREFIX: '${PATH_PREFIX || '/'}' (set PATH_PREFIX env to change)`);
+  console.log(`🧩 Socket.IO path: ${SOCKET_IO_PATH}`);
 });
 
 // Graceful shutdown

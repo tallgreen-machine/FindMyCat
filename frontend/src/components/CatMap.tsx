@@ -112,11 +112,12 @@ export const CatMap: React.FC<CatMapProps> = ({
 
   useEffect(() => {
     let filtered = locations;
-    
+
+    // If a device is selected, limit to that device
     if (selectedDevice) {
-      filtered = locations.filter(loc => loc.deviceId === selectedDevice);
+      filtered = filtered.filter(loc => loc.deviceId === selectedDevice);
     }
-    
+
     if (!showHistory) {
       // Show only latest location per device
       const latestPerDevice = new Map<string, Location>();
@@ -135,11 +136,14 @@ export const CatMap: React.FC<CatMapProps> = ({
   const getMarkerPopupContent = (location: Location) => {
     const deviceStatus = deviceStatuses.find(status => status.deviceId === location.deviceId);
     const timeAgo = formatDistanceToNow(parseISO(location.timestamp), { addSuffix: true });
+    const lat = typeof location.latitude === 'number' ? location.latitude : Number(location.latitude);
+    const lng = typeof location.longitude === 'number' ? location.longitude : Number(location.longitude);
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
     
     return (
       <div className="marker-popup">
         <h4>🐱 {location.deviceId}</h4>
-        <p><strong>Location:</strong> {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}</p>
+        <p><strong>Location:</strong> {hasCoords ? `${lat.toFixed(6)}, ${lng.toFixed(6)}` : 'Unknown coordinates'}</p>
         <p><strong>Last seen:</strong> {timeAgo}</p>
         <p><strong>Status:</strong> 
           <span className={`status ${deviceStatus?.isOnline ? 'online' : 'offline'}`}>
@@ -194,10 +198,14 @@ export const CatMap: React.FC<CatMapProps> = ({
           const fillOpacity = isLatest ? 0.9 : 0.15 + 0.6 * recency; // fade older points
           const fillColor = isLatest ? '#22c55e' : '#3b82f6'; // green latest, blue history
           const color = isLatest ? '#14532d' : '#1e40af'; // darker stroke
+          const lat = typeof location.latitude === 'number' ? location.latitude : Number(location.latitude);
+          const lng = typeof location.longitude === 'number' ? location.longitude : Number(location.longitude);
+          const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+          if (!hasCoords) return null; // skip invalid points
           return (
             <CircleMarker
               key={`${location.deviceId}-${location.timestamp}-${index}`}
-              center={[location.latitude, location.longitude]}
+              center={[lat, lng]}
               pathOptions={{ color, fillColor, fillOpacity, weight: isLatest ? 3 : 1 }}
               radius={radius}
             >

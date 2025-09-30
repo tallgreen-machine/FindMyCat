@@ -133,6 +133,31 @@ export class Database {
     });
   }
 
+  getPath(): string {
+    return this.dbPath;
+  }
+
+  async getTotalCount(): Promise<number> {
+    return new Promise((resolve, reject) => {
+      this.db.get('SELECT COUNT(*) as count FROM locations', (err: Error | null, row: any) => {
+        if (err) return reject(err);
+        resolve(row?.count ?? 0);
+      });
+    });
+  }
+
+  async getDeviceCounts(): Promise<Array<{ deviceId: string; count: number }>> {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        'SELECT deviceId, COUNT(*) as count FROM locations GROUP BY deviceId ORDER BY count DESC',
+        (err: Error | null, rows: any[]) => {
+          if (err) return reject(err);
+          resolve(rows as Array<{ deviceId: string; count: number }>);
+        }
+      );
+    });
+  }
+
   close(): void {
     this.db.close();
   }

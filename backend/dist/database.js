@@ -112,6 +112,27 @@ class Database {
             });
         });
     }
+    getPath() {
+        return this.dbPath;
+    }
+    async getTotalCount() {
+        return new Promise((resolve, reject) => {
+            this.db.get('SELECT COUNT(*) as count FROM locations', (err, row) => {
+                if (err)
+                    return reject(err);
+                resolve(row?.count ?? 0);
+            });
+        });
+    }
+    async getDeviceCounts() {
+        return new Promise((resolve, reject) => {
+            this.db.all('SELECT deviceId, COUNT(*) as count FROM locations GROUP BY deviceId ORDER BY count DESC', (err, rows) => {
+                if (err)
+                    return reject(err);
+                resolve(rows);
+            });
+        });
+    }
     close() {
         this.db.close();
     }

@@ -6,7 +6,6 @@ import './HistoryBoard.css';
 export interface HistoryBoardProps {
   locations: Location[];
   selectedDevice: string | null;
-  showHistory: boolean;
   selectedLocationKey: string | null;
   onSelect: (loc: Location) => void;
 }
@@ -16,7 +15,6 @@ const makeKey = (l: Location) => `${l.deviceId}|${l.timestamp}`;
 export const HistoryBoard: React.FC<HistoryBoardProps> = ({
   locations,
   selectedDevice,
-  showHistory,
   selectedLocationKey,
   onSelect,
 }) => {
@@ -32,7 +30,7 @@ export const HistoryBoard: React.FC<HistoryBoardProps> = ({
     }));
   }, [locations, selectedDevice]);
 
-  if (!showHistory) return null;
+  // Always show history
 
   return (
     <div className="history-board">
@@ -44,6 +42,9 @@ export const HistoryBoard: React.FC<HistoryBoardProps> = ({
           {filtered.map(({ loc, number }) => {
             const isSelected = selectedLocationKey === makeKey(loc);
             const timeAgo = formatDistanceToNow(parseISO(loc.timestamp), { addSuffix: true });
+            const lat = Number(loc.latitude);
+            const lon = Number(loc.longitude);
+            const hasCoords = Number.isFinite(lat) && Number.isFinite(lon);
             return (
               <li key={makeKey(loc)} className={`history-item ${isSelected ? 'selected' : ''}`} onClick={() => onSelect(loc)}>
                 <span className="badge">{number}</span>
@@ -53,7 +54,11 @@ export const HistoryBoard: React.FC<HistoryBoardProps> = ({
                     <span className="time">{timeAgo}</span>
                   </div>
                   <div className="row2">
-                    📍 {loc.latitude.toFixed(5)}, {loc.longitude.toFixed(5)}
+                    {hasCoords ? (
+                      <>📍 {lat.toFixed(5)}, {lon.toFixed(5)}</>
+                    ) : (
+                      <span>📍 Unknown coordinates</span>
+                    )}
                   </div>
                 </div>
               </li>

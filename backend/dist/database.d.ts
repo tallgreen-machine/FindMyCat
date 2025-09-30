@@ -9,6 +9,12 @@ export declare class Database {
     getAllLatestLocations(): Promise<Location[]>;
     getLocationHistory(deviceId: string, limit?: number): Promise<Location[]>;
     getAllLocationHistory(limit?: number): Promise<Location[]>;
+    getPath(): string;
+    getTotalCount(): Promise<number>;
+    getDeviceCounts(): Promise<Array<{
+        deviceId: string;
+        count: number;
+    }>>;
     close(): void;
 }
 //# sourceMappingURL=database.d.ts.map

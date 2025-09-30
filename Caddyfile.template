@@ -1,0 +1,41 @@
+{
+  # Global options block. Enable email for Let's Encrypt notifications if desired.
+  # email you@example.com
+}
+
+# Replace example.com with your domain
+example.com {
+  encode zstd gzip
+  # Serve the React build under /findmy
+  handle_path /findmy* {
+    root * /var/www/findmycat/frontend
+    try_files {path} {path}/ /index.html
+    file_server
+  }
+
+  # Proxy API and Socket.IO to backend
+  # Strip the /findmy base path before proxying API so backend routes match '/api/*'
+  handle_path /findmy/api/* {
+    reverse_proxy 127.0.0.1:3001 {
+      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-Host {host}
+      header_up X-Forwarded-Prefix /findmy
+    }
+  }
+
+  handle_path /findmy/health {
+    reverse_proxy 127.0.0.1:3001 {
+      header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-Host {host}
+      header_up X-Forwarded-Prefix /findmy
+    }
+  }
+
+  # Socket.IO path (polling + websockets)
+  @socket path /findmy/socket.io/*
+  reverse_proxy @socket 127.0.0.1:3001 {
+    header_up X-Forwarded-Proto {scheme}
+    header_up X-Forwarded-Host {host}
+    header_up X-Forwarded-Prefix /findmy
+  }
+}
