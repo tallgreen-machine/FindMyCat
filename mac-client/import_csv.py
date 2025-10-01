@@ -17,7 +17,7 @@ from typing import List, Dict, Tuple, Set
 import requests
 
 
-DEFAULT_SERVER_URL = "https://findmycat.goldmansoap.com/findmy"
+DEFAULT_SERVER_URL = "https://findmycat.goldmansoap.com"
 DEFAULT_BATCH_SIZE = 100
 
 logging.basicConfig(

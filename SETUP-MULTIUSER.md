@@ -85,10 +85,10 @@ pm2 restart findmycat-multi
 ### 5. Verify Installation
 ```bash
 # Check health
-curl https://findmycat.goldmansoap.com/findmy/health
+curl https://findmycat.goldmansoap.com/health
 
 # Check database info
-curl https://findmycat.goldmansoap.com/findmy/api/admin/db-info
+curl https://findmycat.goldmansoap.com/api/admin/db-info
 ```
 
 ## 📱 **User Setup Flow**
@@ -169,7 +169,7 @@ pm2 logs findmycat-multi
 grep JWT_SECRET /srv/findmycat/.env
 
 # Check token generation
-curl -X POST https://findmycat.goldmansoap.com/findmy/api/auth/login \
+curl -X POST https://findmycat.goldmansoap.com/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"test@example.com","password":"password"}'
 ```

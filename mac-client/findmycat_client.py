@@ -18,7 +18,7 @@ DB_PATH = os.path.expanduser(
     "~/Library/Caches/com.apple.findmy.fmipcore/Items.data"
 )
 LOG_FILE = "findmycat_client.log"
-DEFAULT_SERVER_URL = "https://findmycat.goldmansoap.com/findmy"  # Production server
+DEFAULT_SERVER_URL = "https://findmycat.goldmansoap.com"  # Production server
 POLL_INTERVAL = 10  # seconds
 BATCH_SIZE = 10  # maximum locations to send in one request
 

@@ -8,45 +8,34 @@ findmycat.goldmansoap.com {
   encode zstd gzip
 
   # Order matters: proxy API and sockets BEFORE the static catch-all.
-  # This prevents /findmy/api/* and /findmy/socket.io/* from being served by file_server.
 
-  # Proxy API to backend (strip only /findmy, keep /api/* for the backend)
-  handle /findmy/api/* {
-    uri strip_prefix /findmy
+  # Proxy API to backend
+  handle /api/* {
     reverse_proxy 127.0.0.1:3001 {
       header_up X-Forwarded-Proto {scheme}
       header_up X-Forwarded-Host {host}
-      header_up X-Forwarded-Prefix /findmy
     }
   }
 
   # Health endpoint (optional convenience)
-  handle /findmy/health {
-    uri strip_prefix /findmy
+  handle /health {
     reverse_proxy 127.0.0.1:3001 {
       header_up X-Forwarded-Proto {scheme}
       header_up X-Forwarded-Host {host}
-      header_up X-Forwarded-Prefix /findmy
     }
   }
 
   # Socket.IO path (polling + websockets)
-  @socket path /findmy/socket.io/*
+  @socket path /socket.io/*
   handle @socket {
     reverse_proxy 127.0.0.1:3001 {
       header_up X-Forwarded-Proto {scheme}
       header_up X-Forwarded-Host {host}
-      header_up X-Forwarded-Prefix /findmy
     }
   }
 
-  # Ensure /findmy (no trailing slash) redirects to /findmy/
-  handle /findmy {
-    redir /findmy/ 308
-  }
-
-  # Serve the React build under /findmy (catch-all after API/socket rules)
-  handle_path /findmy/* {
+  # Serve the React build at site root (catch-all after API/socket rules)
+  handle_path /* {
     root * /var/www/findmycat/frontend
     try_files {path} {path}/ /index.html
     file_server

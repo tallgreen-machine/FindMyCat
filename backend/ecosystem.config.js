@@ -19,8 +19,9 @@ module.exports = {
         PORT: 3001,
         // CORS supports comma-separated list (dev + prod)
         CORS_ORIGIN: 'https://findmycat.goldmansoap.com',
-        // If you serve the backend under a path prefix, set it here (e.g., "/findmy")
-        PATH_PREFIX: '/findmy',
+  // If you serve the backend under a path prefix, set it here (e.g., "/findmy").
+  // Leave empty for root-hosted deployments.
+  PATH_PREFIX: '',
 
         // PostgreSQL connection
         DB_HOST: 'localhost',
@@ -38,7 +39,8 @@ module.exports = {
         PORT: 3001,
         // Replace with your production origin(s)
         CORS_ORIGIN: 'https://findmycat.goldmansoap.com',
-        PATH_PREFIX: '/findmy',
+  // Leave empty for root-hosted deployments.
+  PATH_PREFIX: '',
 
         // PostgreSQL (override with real values or load from environment)
         DB_HOST: 'YOUR_DB_HOST',
