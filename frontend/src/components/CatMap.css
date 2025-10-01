@@ -1,0 +1,57 @@
+.cat-map-container {
+  flex: 1;
+  height: 100%;
+}
+
+.marker-popup h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.marker-popup p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+/* Prevent visual disappearance at extreme zoom while tiles load/overzoom */
+.leaflet-container {
+  background: #e5e7eb; /* slate-200 */
+}
+
+/* Centered numeric labels for markers */
+.leaflet-tooltip.marker-label {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  color: #111827; /* slate-900 */
+  font-weight: 700;
+  font-size: 12px;
+  text-shadow: 0 0 2px rgba(255,255,255,0.9);
+  padding: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.leaflet-tooltip.marker-label::before {
+  display: none; /* hide default tooltip arrow */
+}
+
+.status.online {
+  color: #22c55e;
+  font-weight: bold;
+}
+
+.status.offline {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.cat-icon-latest {
+  filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.8));
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
