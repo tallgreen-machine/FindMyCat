@@ -1,7 +1,8 @@
 import { io, Socket } from 'socket.io-client';
 
 // Allow overriding the WS endpoint separately (useful behind reverse proxies)
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+// Default to same-origin. In dev, CRA proxy will forward to the backend.
+const API_URL = process.env.REACT_APP_API_URL || '/';
 const WS_URL_OVERRIDE = process.env.REACT_APP_WS_URL; // optional
 
 // Runtime debug toggle: enabled in development, or with ?debug=1, or window.__FMC_DEBUG = true
@@ -32,10 +33,10 @@ class WebSocketService {
     
     // Extract domain and path for Socket.IO configuration
     const urlObj = new URL(url);
-    const serverUrl = `${urlObj.protocol}//${urlObj.host}`;
+  const serverUrl = urlObj.host ? `${urlObj.protocol}//${urlObj.host}` : window.location.origin;
     // If the override already points to a socket.io path, keep it; otherwise append
     const endsWithSocketIo = /\/socket\.io\/?$/.test(urlObj.pathname);
-    const basePath = urlObj.pathname.replace(/\/$/, '');
+    const basePath = urlObj.pathname ? urlObj.pathname.replace(/\/$/, '') : '';
     const path = endsWithSocketIo
       ? basePath.replace(/\/$/, '') // ensure no trailing slash
       : (basePath === '' ? '/socket.io' : `${basePath}/socket.io`);

@@ -2,7 +2,9 @@ import axios from 'axios';
 import { Location, DeviceStatus, Device, DeviceCode } from '../types';
 import { tokenService } from './auth';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+// Default to same-origin so production works out-of-the-box and development
+// uses CRA's proxy (see package.json "proxy").
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
