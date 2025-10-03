@@ -3,8 +3,6 @@ node_modules/
 *.tsbuildinfo
 
 # Build outputs
-build/
-dist/
 coverage/
 
 # Logs
@@ -31,7 +29,7 @@ Thumbs.db
 *.tar.gz
 *.zip
 
-dist-packages/
+
 backend-build.tar.gz
 frontend-build.tar.gz
 backend-postgres-build.tar.gz

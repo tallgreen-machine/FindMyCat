@@ -11,10 +11,19 @@ FRONTEND_DIR="$ROOT_DIR/frontend"
 BACKEND_DIR="$ROOT_DIR/backend"
 OUT_DIR="$ROOT_DIR/dist-packages"
 
-# Configurable via env
+# Configurable via env (sane production defaults)
+#
+# Serve app at site root by default.
 PUBLIC_URL_PREFIX=${PUBLIC_URL_PREFIX:-/}
-API_BASE_URL=${API_BASE_URL:-https://example.com${PUBLIC_URL_PREFIX}}
-WS_BASE_URL=${WS_BASE_URL:-$API_BASE_URL}
+
+# Default API and WS to the deployed domain so the bundle works out-of-the-box.
+# If you deploy to a different host, set API_BASE_URL/WS_BASE_URL when invoking this script.
+# Example:
+#   API_BASE_URL="https://your.domain" \
+#   WS_BASE_URL="wss://your.domain/socket.io" \
+#   ./scripts/package-for-deploy.sh
+API_BASE_URL=${API_BASE_URL:-https://findmycat.goldmansoap.com}
+WS_BASE_URL=${WS_BASE_URL:-wss://findmycat.goldmansoap.com/socket.io}
 
 echo "🏗️  Packaging FindMyCat for deployment"
 echo "   PUBLIC_URL_PREFIX=$PUBLIC_URL_PREFIX"

@@ -65,7 +65,18 @@ class FindMyCatClient:
         try:
             with open(DB_PATH, "r") as f:
                 data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError, PermissionError) as e:
+        except FileNotFoundError as e:
+            logger.error(f"Error reading Find My cache: {e}")
+            return []
+        except PermissionError as e:
+            logger.error(f"Permission error reading Find My cache: {e}")
+            logger.error("This is likely macOS privacy (TCC). Grant Full Disk Access to your terminal (Terminal.app/iTerm/VS Code) in System Settings -> Privacy & Security so the client can read the cache file.")
+            return []
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing Find My cache JSON: {e}")
+            logger.debug("Cache file may be binary or unexpectedly formatted; consider exporting a copy and inspecting it.")
+            return []
+        except Exception as e:
             logger.error(f"Error reading Find My cache: {e}")
             return []
 
@@ -271,11 +282,16 @@ class FindMyCatClient:
             logger.info("👋 FindMyCat client stopped")
 
 def main():
+    global DB_PATH
     parser = argparse.ArgumentParser(description="FindMyCat Mac Client - Send AirTag locations to web server")
     parser.add_argument(
         "--server", 
         default=DEFAULT_SERVER_URL,
         help=f"Web server URL (default: {DEFAULT_SERVER_URL})"
+    )
+    parser.add_argument(
+        "--db-path",
+        help=f"Path to Find My cache (default: {DB_PATH})",
     )
     parser.add_argument(
         "--pair-code",
@@ -322,14 +338,19 @@ def main():
         except Exception as e:
             logger.warning(f"Could not read config file: {e}")
 
+    # Allow overriding the Find My cache path for testing (--db-path)
+    if args.db_path:
+        DB_PATH = os.path.expanduser(args.db_path)
+
     client = FindMyCatClient(args.server, token=saved_token)
 
     # Pairing flow
     if args.pair_code:
         try:
             logger.info("🔗 Pairing with server using code...")
+            # Server pairing endpoint is /api/pairing/claim (not /api/devices/pair)
             resp = client.session.post(
-                f"{client.server_url}/api/devices/pair",
+                f"{client.server_url}/api/pairing/claim",
                 json={"code": args.pair_code},
                 headers={"Content-Type": "application/json"},
                 timeout=30,
@@ -337,7 +358,13 @@ def main():
             if resp.status_code != 200:
                 logger.error(f"❌ Pairing failed: {resp.status_code} {resp.text}")
                 return
-            data = resp.json()
+            # Parse JSON safely and include raw response text on failure for easier debugging
+            try:
+                data = resp.json()
+            except Exception as e:
+                logger.error(f"❌ Failed to parse pairing response as JSON: {e}")
+                logger.debug(f"Pairing response text: {resp.text}")
+                return
             token = data.get("token")
             if not token:
                 logger.error("❌ Pairing response did not include a token")
