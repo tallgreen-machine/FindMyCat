@@ -34,6 +34,7 @@ class MainViewModel: ObservableObject {
     @Published var lastUpdate: Date? = nil
     @Published var lastError: String? = nil
     @Published var devices: [DeviceLocation] = []
+    @Published var mostRecentDevice: DeviceLocation? = nil
     @Published var log: String = ""
     @Published var isPaired: Bool = false
     @Published var pairedCode: String? = nil
@@ -183,6 +184,7 @@ class MainViewModel: ObservableObject {
         let locations = fetchLocations()
         DispatchQueue.main.async {
             self.devices = locations
+            self.mostRecentDevice = locations.max(by: { $0.timestamp < $1.timestamp })
         }
         sendLocations(locations)
     }
@@ -214,6 +216,7 @@ class MainViewModel: ObservableObject {
         var rows: [DeviceLocation] = []
         for item in items {
             let deviceId = (item["id"] as? String) ?? (item["identifier"] as? String) ?? "unknown"
+            let displayName = item["name"] as? String ?? "Unknown Device"
             guard let location = item["location"] as? [String: Any] else { continue }
             if location["positionType"] as? String == "safeLocation" { continue }
             if location["isOld"] as? Bool == true { continue }
@@ -221,7 +224,7 @@ class MainViewModel: ObservableObject {
                   let latitude = location["latitude"] as? Double,
                   let longitude = location["longitude"] as? Double else { continue }
             let isoTime = Date(timeIntervalSince1970: timestamp/1000).iso8601String
-            rows.append(DeviceLocation(id: deviceId, latitude: latitude, longitude: longitude, timestamp: timestamp, isoTime: isoTime))
+            rows.append(DeviceLocation(id: deviceId, displayName: displayName, latitude: latitude, longitude: longitude, timestamp: timestamp, isoTime: isoTime))
         }
         return rows
     }
@@ -454,11 +457,11 @@ extension Array {
 
 struct DeviceLocation: Identifiable {
     let id: String
+    let displayName: String
     let latitude: Double
     let longitude: Double
     let timestamp: Double
     let isoTime: String
-    var displayName: String { id }
 }
 
 enum ConnectionStatus {
